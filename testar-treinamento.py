@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 from tensorflow.keras.utils import to_categorical
 import os
@@ -43,7 +43,14 @@ def criar_modelo_cnn():
     modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return modelo
 
-modelo = criar_modelo_cnn()
+# Tenta carregar o modelo salvo, caso exista
+if os.path.exists("modelo_emocoes.h5"):
+    modelo = load_model("modelo_emocoes.h5")
+    modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])  # Recriar o otimizador
+    print("Modelo carregado com sucesso!")
+else:
+    modelo = criar_modelo_cnn()
+
 dados_imagens, dados_labels = [], []
 modelo_pronto = False  # Indica se o modelo inicial foi treinado
 
@@ -94,6 +101,12 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
         resultados_maos = hands.process(frame_rgb)
         resultados_face = face_mesh.process(frame_rgb)
         resultados_corpo = pose.process(frame_rgb)
+
+        # Prever e exibir emoção com precisão no topo da tela
+        if resultados_face.multi_face_landmarks:
+            emocao, porcentagem = predizer_emocao(frame)
+            cv2.putText(frame, f"Emocao: {emocao} - Precisao: {porcentagem:.1f}%", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Detectar e desenhar esqueleto do corpo
         if resultados_corpo.pose_landmarks:
@@ -154,6 +167,11 @@ with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) a
             modelo.fit(X, y, epochs=5)
             print("Modelo treinado com novas emoções!")
             modelo_pronto = True  # Atualizar o estado do modelo para treinado
+            
+            # Salvar o modelo treinado em um arquivo .h5
+            modelo.save("modelo_emocoes.h5")
+            print("Modelo salvo como 'modelo_emocoes.h5'")
+            
         elif tecla in [ord('f'), ord('t'), ord('n')]:
             # Captura a emoção correspondente e armazena a imagem com o rótulo
             label = emocao_map[chr(tecla)]
