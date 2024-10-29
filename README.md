@@ -1,0 +1,1 @@
+# Treinamento-de-gestos-com-py-openCV-CNN
